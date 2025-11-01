@@ -24,13 +24,25 @@ def import_from_csv(csv_file):
 
             students_created = 0
             assessments_created = 0
+            student_index = 1
 
             for row in reader:
                 initials = row['INICIAIS'].strip()
                 serie = int(row['SERIE'])
 
-                # Create username from initials (lowercase, no spaces)
-                username = initials.lower().replace(' ', '_')
+                # Generate fictitious RA (format: 20241001, 20241002, etc.)
+                # When you have real RAs, add a column 'RA' in the CSV
+                if 'RA' in row and row['RA']:
+                    ra = row['RA'].strip()
+                else:
+                    # Generate fictitious RA: 2024 + serie + 4-digit sequential
+                    ra = f"2024{serie}{student_index:04d}"
+
+                # Last 4 digits of RA as initial password
+                initial_password = ra[-4:]
+
+                # Username is the RA itself
+                username = ra
 
                 # Check if user already exists
                 user = User.query.filter_by(username=username).first()
@@ -39,15 +51,18 @@ def import_from_csv(csv_file):
                     # Create new user
                     user = User(
                         username=username,
+                        ra=ra,
                         initials=initials,
                         serie=serie,
-                        is_admin=False
+                        is_admin=False,
+                        first_login=True
                     )
-                    # Default password is the username
-                    user.set_password(username)
+                    # Initial password: last 4 digits of RA
+                    user.set_password(initial_password)
                     db.session.add(user)
                     db.session.flush()  # Get user ID
                     students_created += 1
+                    student_index += 1
 
                 # Create assessment
                 assessment = Assessment(
@@ -84,12 +99,15 @@ def import_from_csv(csv_file):
             print(f"{'='*60}")
             print(f"Students created: {students_created}")
             print(f"Assessments created: {assessments_created}")
-            print(f"\nDefault credentials:")
-            print(f"- Username: [student initials in lowercase]")
-            print(f"- Password: [same as username]")
-            print(f"\nExamples:")
-            print(f"  Username: jps, Password: jps")
-            print(f"  Username: jk, Password: jk")
+            print(f"\n🔐 CREDENCIAIS DE ACESSO:")
+            print(f"- Username: RA completo do aluno")
+            print(f"- Senha inicial: Últimos 4 dígitos do RA")
+            print(f"- Primeiro acesso: Sistema forçará troca de senha")
+            print(f"\n📝 Exemplos (RAs fictícios gerados):")
+            print(f"  RA: 20240001, Senha: 0001")
+            print(f"  RA: 20241002, Senha: 1002")
+            print(f"\n💡 Para usar RAs reais:")
+            print(f"  Adicione uma coluna 'RA' no arquivo data.csv")
             print(f"{'='*60}")
 
 if __name__ == '__main__':

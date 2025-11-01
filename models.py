@@ -7,11 +7,13 @@ db = SQLAlchemy()
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
+    username = db.Column(db.String(80), unique=True, nullable=False)  # RA do aluno
+    ra = db.Column(db.String(20), unique=True, nullable=True)  # Registro Acadêmico
     initials = db.Column(db.String(20), nullable=False)  # INICIAIS do aluno
     password_hash = db.Column(db.String(200), nullable=False)
     serie = db.Column(db.Integer, nullable=False)  # 0, 1, 2, 3, 4
     is_admin = db.Column(db.Boolean, default=False)
+    first_login = db.Column(db.Boolean, default=True)  # Força troca de senha no primeiro acesso
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationship with assessments

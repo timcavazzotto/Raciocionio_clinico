@@ -30,6 +30,8 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
+        if current_user.first_login and not current_user.is_admin:
+            return redirect(url_for('change_password'))
         return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
@@ -40,10 +42,15 @@ def login():
 
         if user and user.check_password(password):
             login_user(user)
+
+            # Force password change on first login (except admin)
+            if user.first_login and not user.is_admin:
+                return redirect(url_for('change_password'))
+
             next_page = request.args.get('next')
             return redirect(next_page or url_for('dashboard'))
         else:
-            flash('Usuário ou senha inválidos', 'error')
+            flash('RA ou senha inválidos', 'error')
 
     return render_template('login.html')
 
@@ -55,11 +62,51 @@ def logout():
     return redirect(url_for('login'))
 
 
+@app.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        current_password = request.form.get('current_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        # Validate current password (unless first login)
+        if not current_user.first_login:
+            if not current_user.check_password(current_password):
+                flash('Senha atual incorreta', 'error')
+                return render_template('change_password.html')
+
+        # Validate new passwords match
+        if new_password != confirm_password:
+            flash('As senhas não conferem', 'error')
+            return render_template('change_password.html')
+
+        # Validate password strength (minimum 6 characters)
+        if len(new_password) < 6:
+            flash('A senha deve ter no mínimo 6 caracteres', 'error')
+            return render_template('change_password.html')
+
+        # Update password
+        current_user.set_password(new_password)
+        current_user.first_login = False
+        db.session.commit()
+
+        flash('Senha alterada com sucesso!', 'success')
+        return redirect(url_for('dashboard'))
+
+    return render_template('change_password.html')
+
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
     if current_user.is_admin:
         return redirect(url_for('admin'))
+
+    # Force password change on first login
+    if current_user.first_login:
+        return redirect(url_for('change_password'))
+
     return render_template('dashboard.html', user=current_user)
 
 
@@ -286,9 +333,11 @@ def init_db():
         if not admin:
             admin = User(
                 username='admin',
+                ra=None,
                 initials='ADMIN',
                 serie=0,
-                is_admin=True
+                is_admin=True,
+                first_login=False
             )
             admin.set_password('admin123')
             db.session.add(admin)
