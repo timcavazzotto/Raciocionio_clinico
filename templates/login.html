@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Sistema de Notas{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-box">
+        <h1>Sistema de Notas</h1>
+        <p class="subtitle">Faça login para acessar suas notas</p>
+
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="form-group">
+                <label for="username">Usuário</label>
+                <input type="text" id="username" name="username" required autofocus>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Senha</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Entrar</button>
+        </form>
+
+        <div class="login-info">
+            <p><strong>Usuário padrão para testes:</strong></p>
+            <p>Admin: <code>admin</code> / <code>admin123</code></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

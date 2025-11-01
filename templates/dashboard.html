@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - {{ user.name }}{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1>Dashboard - {{ user.name }}</h1>
+
+    <div class="stats-container">
+        <div class="stat-card">
+            <h3>Número de Avaliações</h3>
+            <p class="stat-value" id="total-grades">-</p>
+        </div>
+        <div class="stat-card">
+            <h3>Média Geral</h3>
+            <p class="stat-value" id="average-grade">-</p>
+        </div>
+        <div class="stat-card">
+            <h3>Aproveitamento</h3>
+            <p class="stat-value" id="performance">-</p>
+        </div>
+    </div>
+
+    <div class="charts-section">
+        <div class="chart-container">
+            <h2>Minhas Notas por Instrumento</h2>
+            <canvas id="myGradesChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h2>Comparação com a Média da Turma</h2>
+            <canvas id="comparisonChart"></canvas>
+        </div>
+    </div>
+
+    <div class="grades-table-section">
+        <h2>Histórico de Notas</h2>
+        <table class="grades-table" id="grades-table">
+            <thead>
+                <tr>
+                    <th>Instrumento</th>
+                    <th>Nota</th>
+                    <th>Nota Máxima</th>
+                    <th>Percentual</th>
+                    <th>Data</th>
+                    <th>Observações</th>
+                </tr>
+            </thead>
+            <tbody id="grades-tbody">
+                <tr>
+                    <td colspan="6" class="no-data">Carregando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
