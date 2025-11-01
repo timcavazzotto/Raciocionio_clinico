@@ -8,14 +8,14 @@ db = SQLAlchemy()
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
+    initials = db.Column(db.String(20), nullable=False)  # INICIAIS do aluno
     password_hash = db.Column(db.String(200), nullable=False)
-    name = db.Column(db.String(120), nullable=False)
+    serie = db.Column(db.Integer, nullable=False)  # 0, 1, 2, 3, 4
     is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Relationship with grades
-    grades = db.relationship('Grade', backref='student', lazy=True, cascade='all, delete-orphan')
+    # Relationship with assessments
+    assessments = db.relationship('Assessment', backref='student', lazy=True, cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -24,28 +24,68 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
     def __repr__(self):
-        return f'<User {self.username}>'
+        return f'<User {self.initials} - Serie {self.serie}>'
 
 
-class Grade(db.Model):
+class Assessment(db.Model):
+    """Representa uma aplicação completa do instrumento de avaliação"""
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    instrument_name = db.Column(db.String(100), nullable=False)
-    score = db.Column(db.Float, nullable=False)
-    max_score = db.Column(db.Float, default=10.0)
-    date = db.Column(db.DateTime, default=datetime.utcnow)
-    notes = db.Column(db.Text)
+    application_date = db.Column(db.DateTime, default=datetime.utcnow)
+    application_number = db.Column(db.Integer, default=1)  # Para tracking longitudinal
+
+    # Casos clínicos (7 casos)
+    pac = db.Column(db.Float, nullable=False)  # Pneumonia Adquirida na Comunidade
+    cis = db.Column(db.Float, nullable=False)  # Cistite
+    mio = db.Column(db.Float, nullable=False)  # Miocardite
+    ar = db.Column(db.Float, nullable=False)   # Artrite Reumatoide
+    cc = db.Column(db.Float, nullable=False)   # Câncer de Cólon
+    ep = db.Column(db.Float, nullable=False)   # Embolia Pulmonar
+    tep = db.Column(db.Float, nullable=False)  # Tromboembolismo Pulmonar
+
+    # Parâmetros gerais
+    autoconfianca = db.Column(db.Float, nullable=False)
+    acuracia = db.Column(db.Float, nullable=False)
+
+    # Dimensões do raciocínio clínico (8 dimensões)
+    dados_relevantes = db.Column(db.Float, nullable=False)
+    resumo = db.Column(db.Float, nullable=False)
+    diferencial = db.Column(db.Float, nullable=False)
+    hp_justificativa = db.Column(db.Float, nullable=False)
+    hp = db.Column(db.Float, nullable=False)
+    conduta = db.Column(db.Float, nullable=False)
+    sinais_sintomas = db.Column(db.Float, nullable=False)
+    fisiopatologia = db.Column(db.Float, nullable=False)
 
     def __repr__(self):
-        return f'<Grade {self.instrument_name}: {self.score}/{self.max_score}>'
+        return f'<Assessment {self.id} - Student {self.student_id} - App {self.application_number}>'
 
     def to_dict(self):
         return {
             'id': self.id,
-            'instrument_name': self.instrument_name,
-            'score': self.score,
-            'max_score': self.max_score,
-            'date': self.date.isoformat(),
-            'notes': self.notes,
-            'percentage': round((self.score / self.max_score) * 100, 2) if self.max_score > 0 else 0
+            'application_date': self.application_date.isoformat(),
+            'application_number': self.application_number,
+            'casos_clinicos': {
+                'PAC': self.pac,
+                'CIS': self.cis,
+                'MIO': self.mio,
+                'AR': self.ar,
+                'CC': self.cc,
+                'EP': self.ep,
+                'TEP': self.tep
+            },
+            'parametros_gerais': {
+                'Autoconfiança': self.autoconfianca,
+                'Acurácia': self.acuracia
+            },
+            'dimensoes': {
+                'Dados Relevantes': self.dados_relevantes,
+                'Resumo': self.resumo,
+                'Diferencial': self.diferencial,
+                'HP Justificativa': self.hp_justificativa,
+                'HP': self.hp,
+                'Conduta': self.conduta,
+                'Sinais e Sintomas': self.sinais_sintomas,
+                'Fisiopatologia': self.fisiopatologia
+            }
         }
