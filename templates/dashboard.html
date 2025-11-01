@@ -1,57 +1,113 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - {{ user.name }}{% endblock %}
+{% block title %}Dashboard - {{ user.initials }}{% endblock %}
 
 {% block content %}
 <div class="dashboard">
-    <h1>Dashboard - {{ user.name }}</h1>
+    <div class="dashboard-header">
+        <h1>Avaliação de Raciocínio Clínico</h1>
+        <p class="student-info">{{ user.initials }} - Série {{ user.serie }}</p>
+    </div>
 
+    <!-- Parâmetros Gerais -->
     <div class="stats-container">
         <div class="stat-card">
-            <h3>Número de Avaliações</h3>
-            <p class="stat-value" id="total-grades">-</p>
+            <h3>Autoconfiança</h3>
+            <p class="stat-value" id="autoconfianca-value">-</p>
+            <p class="stat-subtitle" id="autoconfianca-position">-</p>
         </div>
         <div class="stat-card">
-            <h3>Média Geral</h3>
-            <p class="stat-value" id="average-grade">-</p>
+            <h3>Acurácia</h3>
+            <p class="stat-value" id="acuracia-value">-</p>
+            <p class="stat-subtitle" id="acuracia-position">-</p>
         </div>
         <div class="stat-card">
-            <h3>Aproveitamento</h3>
-            <p class="stat-value" id="performance">-</p>
+            <h3>Alunos na Turma</h3>
+            <p class="stat-value" id="class-size">-</p>
+            <p class="stat-subtitle">Série {{ user.serie }}</p>
         </div>
     </div>
 
-    <div class="charts-section">
-        <div class="chart-container">
-            <h2>Minhas Notas por Instrumento</h2>
-            <canvas id="myGradesChart"></canvas>
+    <!-- Gráficos Principais -->
+    <div class="charts-grid">
+        <!-- Radar Chart - Dimensões do Raciocínio Clínico -->
+        <div class="chart-container large">
+            <h2>Dimensões do Raciocínio Clínico</h2>
+            <p class="chart-description">Seu perfil comparado com a média da turma</p>
+            <canvas id="radarChart"></canvas>
         </div>
 
-        <div class="chart-container">
-            <h2>Comparação com a Média da Turma</h2>
-            <canvas id="comparisonChart"></canvas>
+        <!-- Bar Chart - Casos Clínicos -->
+        <div class="chart-container large">
+            <h2>Performance por Caso Clínico</h2>
+            <p class="chart-description">Suas notas vs média da turma (0-1)</p>
+            <canvas id="casosChart"></canvas>
         </div>
     </div>
 
-    <div class="grades-table-section">
-        <h2>Histórico de Notas</h2>
-        <table class="grades-table" id="grades-table">
-            <thead>
-                <tr>
-                    <th>Instrumento</th>
-                    <th>Nota</th>
-                    <th>Nota Máxima</th>
-                    <th>Percentual</th>
-                    <th>Data</th>
-                    <th>Observações</th>
-                </tr>
-            </thead>
-            <tbody id="grades-tbody">
-                <tr>
-                    <td colspan="6" class="no-data">Carregando...</td>
-                </tr>
-            </tbody>
-        </table>
+    <!-- Scatter Plot - Posição na Turma -->
+    <div class="chart-container full-width">
+        <h2>Sua Posição na Turma - Dimensões do Raciocínio</h2>
+        <p class="chart-description">Pontos cinza: colegas de turma | Ponto colorido: você | Linhas: média ± desvio padrão</p>
+        <canvas id="scatterChart"></canvas>
+    </div>
+
+    <!-- Tabela Detalhada -->
+    <div class="table-section">
+        <h2>Resultados Detalhados</h2>
+
+        <div class="table-tabs">
+            <button class="tab-btn active" data-tab="dimensoes">Dimensões</button>
+            <button class="tab-btn" data-tab="casos">Casos Clínicos</button>
+        </div>
+
+        <div id="dimensoes-tab" class="tab-content active">
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>Dimensão</th>
+                        <th>Sua Nota</th>
+                        <th>Média da Turma</th>
+                        <th>Desvio Padrão</th>
+                        <th>Posição</th>
+                    </tr>
+                </thead>
+                <tbody id="dimensoes-tbody">
+                    <tr><td colspan="5" class="no-data">Carregando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="casos-tab" class="tab-content">
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>Caso Clínico</th>
+                        <th>Sua Nota</th>
+                        <th>Média da Turma</th>
+                        <th>Desvio Padrão</th>
+                        <th>Posição</th>
+                    </tr>
+                </thead>
+                <tbody id="casos-tbody">
+                    <tr><td colspan="5" class="no-data">Carregando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Legenda de Doenças -->
+    <div class="info-box">
+        <h3>Legenda dos Casos Clínicos</h3>
+        <ul class="legend-list">
+            <li><strong>PAC:</strong> Pneumonia Adquirida na Comunidade</li>
+            <li><strong>CIS:</strong> Cistite</li>
+            <li><strong>MIO:</strong> Miocardite</li>
+            <li><strong>AR:</strong> Artrite Reumatoide</li>
+            <li><strong>CC:</strong> Câncer de Cólon</li>
+            <li><strong>EP:</strong> Embolia Pulmonar</li>
+            <li><strong>TEP:</strong> Tromboembolismo Pulmonar</li>
+        </ul>
     </div>
 </div>
 {% endblock %}

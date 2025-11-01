@@ -1,9 +1,9 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from config import Config
-from models import db, User, Grade
+from models import db, User, Assessment
 from sqlalchemy import func
-import os
+import statistics
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -70,120 +70,213 @@ def admin():
         flash('Acesso negado', 'error')
         return redirect(url_for('dashboard'))
 
-    users = User.query.filter_by(is_admin=False).all()
+    users = User.query.filter_by(is_admin=False).order_by(User.serie, User.initials).all()
     return render_template('admin.html', users=users)
 
 
-# API Endpoints
-@app.route('/api/my-grades')
+# API Endpoints for Students
+@app.route('/api/my-assessment')
 @login_required
-def get_my_grades():
-    grades = Grade.query.filter_by(student_id=current_user.id).all()
-    return jsonify([grade.to_dict() for grade in grades])
+def get_my_assessment():
+    """Get assessment data for current user"""
+    if current_user.is_admin:
+        return jsonify({'error': 'Admin users do not have assessments'}), 403
+
+    assessment = Assessment.query.filter_by(student_id=current_user.id).first()
+
+    if not assessment:
+        return jsonify({'error': 'No assessment found'}), 404
+
+    return jsonify({
+        'student': {
+            'initials': current_user.initials,
+            'serie': current_user.serie
+        },
+        'assessment': assessment.to_dict()
+    })
 
 
-@app.route('/api/class-averages')
+@app.route('/api/class-stats')
 @login_required
-def get_class_averages():
-    # Get average scores grouped by instrument
-    averages = db.session.query(
-        Grade.instrument_name,
-        func.avg(Grade.score).label('avg_score'),
-        func.avg(Grade.max_score).label('avg_max_score')
-    ).group_by(Grade.instrument_name).all()
+def get_class_stats():
+    """Get class statistics (mean and std) for the same serie"""
+    if current_user.is_admin:
+        return jsonify({'error': 'Admin users do not have a serie'}), 403
 
-    result = []
-    for avg in averages:
-        percentage = (avg.avg_score / avg.avg_max_score * 100) if avg.avg_max_score > 0 else 0
-        result.append({
-            'instrument_name': avg.instrument_name,
-            'average_score': round(avg.avg_score, 2),
-            'max_score': round(avg.avg_max_score, 2),
-            'percentage': round(percentage, 2)
-        })
+    # Get all students from the same serie
+    students_in_serie = User.query.filter_by(serie=current_user.serie, is_admin=False).all()
+    student_ids = [s.id for s in students_in_serie]
 
-    return jsonify(result)
+    # Get all assessments for this serie
+    assessments = Assessment.query.filter(Assessment.student_id.in_(student_ids)).all()
+
+    if not assessments:
+        return jsonify({'error': 'No assessments found for this serie'}), 404
+
+    # Calculate statistics for each field
+    casos = ['pac', 'cis', 'mio', 'ar', 'cc', 'ep', 'tep']
+    dimensoes = ['dados_relevantes', 'resumo', 'diferencial', 'hp_justificativa',
+                 'hp', 'conduta', 'sinais_sintomas', 'fisiopatologia']
+    parametros = ['autoconfianca', 'acuracia']
+
+    def calc_stats(values):
+        if len(values) > 1:
+            return {
+                'mean': round(statistics.mean(values), 3),
+                'std': round(statistics.stdev(values), 3),
+                'min': round(min(values), 3),
+                'max': round(max(values), 3)
+            }
+        elif len(values) == 1:
+            return {
+                'mean': round(values[0], 3),
+                'std': 0,
+                'min': round(values[0], 3),
+                'max': round(values[0], 3)
+            }
+        return {'mean': 0, 'std': 0, 'min': 0, 'max': 0}
+
+    stats = {
+        'casos_clinicos': {},
+        'dimensoes': {},
+        'parametros_gerais': {}
+    }
+
+    # Calculate stats for casos clínicos
+    for caso in casos:
+        values = [getattr(a, caso) for a in assessments]
+        stats['casos_clinicos'][caso.upper()] = calc_stats(values)
+
+    # Calculate stats for dimensões
+    dim_names = ['Dados Relevantes', 'Resumo', 'Diferencial', 'HP Justificativa',
+                 'HP', 'Conduta', 'Sinais e Sintomas', 'Fisiopatologia']
+    for dim, name in zip(dimensoes, dim_names):
+        values = [getattr(a, dim) for a in assessments]
+        stats['dimensoes'][name] = calc_stats(values)
+
+    # Calculate stats for parametros gerais
+    for param in parametros:
+        values = [getattr(a, param) for a in assessments]
+        param_name = 'Autoconfiança' if param == 'autoconfianca' else 'Acurácia'
+        stats['parametros_gerais'][param_name] = calc_stats(values)
+
+    return jsonify(stats)
 
 
+@app.route('/api/class-data')
+@login_required
+def get_class_data():
+    """Get all individual data points for scatter plot (anonymized except current user)"""
+    if current_user.is_admin:
+        return jsonify({'error': 'Admin users do not have a serie'}), 403
+
+    # Get all students from the same serie
+    students_in_serie = User.query.filter_by(serie=current_user.serie, is_admin=False).all()
+    student_ids = [s.id for s in students_in_serie]
+
+    # Get all assessments for this serie
+    assessments = Assessment.query.filter(Assessment.student_id.in_(student_ids)).all()
+
+    data_points = []
+    for assessment in assessments:
+        data_point = {
+            'is_me': assessment.student_id == current_user.id,
+            'casos_clinicos': {
+                'PAC': assessment.pac,
+                'CIS': assessment.cis,
+                'MIO': assessment.mio,
+                'AR': assessment.ar,
+                'CC': assessment.cc,
+                'EP': assessment.ep,
+                'TEP': assessment.tep
+            },
+            'dimensoes': {
+                'Dados Relevantes': assessment.dados_relevantes,
+                'Resumo': assessment.resumo,
+                'Diferencial': assessment.diferencial,
+                'HP Justificativa': assessment.hp_justificativa,
+                'HP': assessment.hp,
+                'Conduta': assessment.conduta,
+                'Sinais e Sintomas': assessment.sinais_sintomas,
+                'Fisiopatologia': assessment.fisiopatologia
+            },
+            'parametros_gerais': {
+                'Autoconfiança': assessment.autoconfianca,
+                'Acurácia': assessment.acuracia
+            }
+        }
+        data_points.append(data_point)
+
+    return jsonify(data_points)
+
+
+# API Endpoints for Admin
 @app.route('/api/students', methods=['GET'])
 @login_required
 def get_students():
     if not current_user.is_admin:
         return jsonify({'error': 'Unauthorized'}), 403
 
-    students = User.query.filter_by(is_admin=False).all()
+    students = User.query.filter_by(is_admin=False).order_by(User.serie, User.initials).all()
     return jsonify([{
         'id': s.id,
-        'name': s.name,
+        'initials': s.initials,
         'username': s.username,
-        'email': s.email
+        'serie': s.serie
     } for s in students])
 
 
-@app.route('/api/students/<int:student_id>/grades', methods=['GET'])
+@app.route('/api/students/<int:student_id>/assessment', methods=['GET'])
 @login_required
-def get_student_grades(student_id):
+def get_student_assessment(student_id):
     if not current_user.is_admin:
         return jsonify({'error': 'Unauthorized'}), 403
 
-    grades = Grade.query.filter_by(student_id=student_id).all()
-    return jsonify([grade.to_dict() for grade in grades])
+    student = User.query.get_or_404(student_id)
+    assessment = Assessment.query.filter_by(student_id=student_id).first()
+
+    if not assessment:
+        return jsonify({'error': 'No assessment found'}), 404
+
+    return jsonify({
+        'student': {
+            'id': student.id,
+            'initials': student.initials,
+            'serie': student.serie
+        },
+        'assessment': assessment.to_dict()
+    })
 
 
-@app.route('/api/grades', methods=['POST'])
+@app.route('/api/series-stats', methods=['GET'])
 @login_required
-def add_grade():
+def get_series_stats():
+    """Get statistics grouped by serie for admin view"""
     if not current_user.is_admin:
         return jsonify({'error': 'Unauthorized'}), 403
 
-    data = request.json
-    grade = Grade(
-        student_id=data['student_id'],
-        instrument_name=data['instrument_name'],
-        score=data['score'],
-        max_score=data.get('max_score', 10.0),
-        notes=data.get('notes', '')
-    )
+    series = [0, 1, 2, 3, 4]
+    stats_by_serie = {}
 
-    db.session.add(grade)
-    db.session.commit()
+    for serie in series:
+        students = User.query.filter_by(serie=serie, is_admin=False).all()
+        student_ids = [s.id for s in students]
+        assessments = Assessment.query.filter(Assessment.student_id.in_(student_ids)).all()
 
-    return jsonify({'message': 'Grade added successfully', 'grade': grade.to_dict()}), 201
+        if assessments:
+            avg_acuracia = statistics.mean([a.acuracia for a in assessments])
+            avg_autoconfianca = statistics.mean([a.autoconfianca for a in assessments])
 
+            stats_by_serie[f'Serie {serie}'] = {
+                'count': len(students),
+                'avg_acuracia': round(avg_acuracia, 3),
+                'avg_autoconfianca': round(avg_autoconfianca, 3)
+            }
 
-@app.route('/api/grades/<int:grade_id>', methods=['PUT'])
-@login_required
-def update_grade(grade_id):
-    if not current_user.is_admin:
-        return jsonify({'error': 'Unauthorized'}), 403
-
-    grade = Grade.query.get_or_404(grade_id)
-    data = request.json
-
-    grade.instrument_name = data.get('instrument_name', grade.instrument_name)
-    grade.score = data.get('score', grade.score)
-    grade.max_score = data.get('max_score', grade.max_score)
-    grade.notes = data.get('notes', grade.notes)
-
-    db.session.commit()
-
-    return jsonify({'message': 'Grade updated successfully', 'grade': grade.to_dict()})
+    return jsonify(stats_by_serie)
 
 
-@app.route('/api/grades/<int:grade_id>', methods=['DELETE'])
-@login_required
-def delete_grade(grade_id):
-    if not current_user.is_admin:
-        return jsonify({'error': 'Unauthorized'}), 403
-
-    grade = Grade.query.get_or_404(grade_id)
-    db.session.delete(grade)
-    db.session.commit()
-
-    return jsonify({'message': 'Grade deleted successfully'})
-
-
-# Create tables and sample data
+# Initialize database
 def init_db():
     with app.app_context():
         db.create_all()
@@ -193,8 +286,8 @@ def init_db():
         if not admin:
             admin = User(
                 username='admin',
-                email='admin@example.com',
-                name='Administrador',
+                initials='ADMIN',
+                serie=0,
                 is_admin=True
             )
             admin.set_password('admin123')

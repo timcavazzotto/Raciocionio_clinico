@@ -1,90 +1,62 @@
 {% extends "base.html" %}
 
-{% block title %}Administração - Sistema de Notas{% endblock %}
+{% block title %}Administração - Sistema de Avaliação{% endblock %}
 
 {% block content %}
 <div class="admin-panel">
     <h1>Painel de Administração</h1>
 
+    <!-- Estatísticas por Série -->
     <div class="admin-section">
-        <h2>Gerenciar Notas</h2>
-
-        <div class="form-card">
-            <h3>Adicionar Nova Nota</h3>
-            <form id="add-grade-form">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="student-select">Aluno</label>
-                        <select id="student-select" required>
-                            <option value="">Selecione um aluno</option>
-                            {% for student in users %}
-                            <option value="{{ student.id }}">{{ student.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="instrument-input">Nome do Instrumento</label>
-                        <input type="text" id="instrument-input" required placeholder="Ex: Prova Final">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="score-input">Nota Obtida</label>
-                        <input type="number" id="score-input" step="0.1" min="0" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="max-score-input">Nota Máxima</label>
-                        <input type="number" id="max-score-input" step="0.1" min="0" value="10" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="notes-input">Observações (opcional)</label>
-                    <textarea id="notes-input" rows="3" placeholder="Adicione observações sobre a avaliação"></textarea>
-                </div>
-
-                <button type="submit" class="btn btn-primary">Adicionar Nota</button>
-            </form>
+        <h2>Estatísticas por Série</h2>
+        <div class="stats-grid" id="series-stats">
+            <p class="loading">Carregando...</p>
         </div>
     </div>
 
+    <!-- Lista de Alunos -->
     <div class="admin-section">
-        <h2>Notas por Aluno</h2>
-        <div class="form-group">
-            <label for="view-student-select">Selecione um aluno para ver as notas</label>
-            <select id="view-student-select">
-                <option value="">Selecione um aluno</option>
-                {% for student in users %}
-                <option value="{{ student.id }}">{{ student.name }}</option>
-                {% endfor %}
+        <h2>Alunos Cadastrados</h2>
+
+        <div class="filter-section">
+            <label for="serie-filter">Filtrar por Série:</label>
+            <select id="serie-filter">
+                <option value="">Todas as Séries</option>
+                <option value="0">Série 0 (Controle)</option>
+                <option value="1">Série 1</option>
+                <option value="2">Série 2</option>
+                <option value="3">Série 3</option>
+                <option value="4">Série 4 (IAs)</option>
             </select>
         </div>
 
-        <div id="student-grades-section" style="display: none;">
-            <h3 id="student-name"></h3>
-            <table class="grades-table" id="student-grades-table">
-                <thead>
-                    <tr>
-                        <th>Instrumento</th>
-                        <th>Nota</th>
-                        <th>Nota Máxima</th>
-                        <th>Percentual</th>
-                        <th>Data</th>
-                        <th>Observações</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="student-grades-tbody">
-                </tbody>
-            </table>
-        </div>
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Iniciais</th>
+                    <th>Username</th>
+                    <th>Série</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="students-tbody">
+                <tr>
+                    <td colspan="4" class="no-data">Carregando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Instruções -->
+    <div class="info-box">
+        <h3>Instruções</h3>
+        <ul>
+            <li><strong>Importar Dados:</strong> Use o script <code>python import_data.py</code> para importar dados do CSV</li>
+            <li><strong>Total de Alunos:</strong> <span id="total-students">-</span></li>
+            <li><strong>Credenciais:</strong> Username e senha são as iniciais em minúsculo (ex: jps/jps)</li>
+        </ul>
     </div>
 </div>
-
-<div id="toast" class="toast"></div>
 {% endblock %}
 
 {% block extra_js %}
